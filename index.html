@@ -80,15 +80,11 @@
   .hud-left, .hud-right { display: flex; gap: 14px; align-items: center; }
 
   .hud-brand {
-    position: fixed;
-    top: calc(var(--sat) + 12px);
-    left: 16px;
-    z-index: 11;
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.45rem;
+    font-size: 0.42rem;
     letter-spacing: 2px;
-    color: rgba(255,255,255,0.2);
-    pointer-events: none;
+    color: rgba(0,240,255,0.45);
+    white-space: nowrap;
   }
 
   .stat { text-align: center; }
@@ -492,8 +488,8 @@
 <canvas id="bgCanvas"></canvas>
 
 <!-- HUD -->
-<div class="hud-brand">MADE BY AGENT ZZ GAMES</div>
 <div class="hud">
+  <div class="hud-brand">AGENT ZZ GAMES</div>
   <div class="hud-left">
     <div class="stat">
       <div class="stat-label">Score</div>
