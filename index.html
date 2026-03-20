@@ -491,7 +491,7 @@
       <div class="stat-value combo" id="comboVal">x1</div>
     </div>
   </div>
-  <div class="hud-title">MEMORY LOOP</div>
+  <div class="hud-title" id="hudLevel">L1 · 1</div>
   <div class="hud-right">
     <div class="stat">
       <div class="stat-label">Lives</div>
@@ -872,6 +872,9 @@ function updateHUD() {
   for (let i = 0; i < lives; i++) hearts += '♥';
   document.getElementById('livesVal').textContent = hearts || '—';
   document.getElementById('diffFill').style.height = Math.min(level * 4, 100) + '%';
+
+  const rings = Math.min(level, 3);
+  document.getElementById('hudLevel').textContent = 'L' + level + ' · R' + rings + ' · ' + sequence.length;
 
   document.getElementById('puRevealCount').textContent = powerups.reveal;
   document.getElementById('puShieldCount').textContent = powerups.shield;
