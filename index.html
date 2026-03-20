@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Loop 4</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  :root {
+    --primary: #00f0ff;
+    --secondary: #ff00c8;
+    --accent: #ffe600;
+    --success: #00ff88;
+    --danger: #ff2244;
+    --bg: #06060f;
+    --surface: rgba(255,255,255,0.03);
+  }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow: hidden;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  canvas#bgCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .game-layer {
+    position: relative;
+    z-index: 1;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* HUD */
+  .hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    background: linear-gradient(180deg, rgba(6,6,15,0.95) 0%, transparent 100%);
+  }
+
+  .hud-left, .hud-right { display: flex; gap: 28px; align-items: center; }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.55rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #556;
+    margin-bottom: 2px;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+  }
+
+  .stat-value.score { color: var(--primary); text-shadow: 0 0 20px var(--primary); }
+  .stat-value.combo { color: var(--accent); text-shadow: 0 0 20px var(--accent); }
+  .stat-value.best { color: var(--secondary); text-shadow: 0 0 20px var(--secondary); }
+  .stat-value.lives { color: var(--danger); text-shadow: 0 0 20px var(--danger); }
+
+  .hud-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 4px;
+  }
+
+  /* Ring Container */
+  .ring-container {
+    position: relative;
+    width: 420px;
+    height: 420px;
+  }
+
+  @media(max-width:480px){
+    .ring-container { width: 320px; height: 320px; }
+  }
+
+  .ring-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Center Info */
+  .center-info {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .center-msg {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    color: #667;
+    margin-bottom: 4px;
+    min-height: 20px;
+  }
+
+  .center-big {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Mode Buttons */
+  .mode-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+
+  .mode-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    padding: 10px 22px;
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: #889;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-transform: uppercase;
+  }
+
+  .mode-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .mode-btn.active { background: rgba(0,240,255,0.1); border-color: var(--primary); color: var(--primary); box-shadow: 0 0 20px rgba(0,240,255,0.15); }
+
+  /* Power-ups */
+  .powerup-bar {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+
+  .powerup {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: #889;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+    position: relative;
+  }
+
+  .powerup:hover:not(.disabled) { border-color: var(--accent); color: var(--accent); transform: scale(1.1); }
+  .powerup.disabled { opacity: 0.3; cursor: default; }
+  .powerup .count {
+    position: absolute;
+    top: -4px; right: -4px;
+    background: var(--danger);
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.6rem;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6,6,15,0.92);
+    backdrop-filter: blur(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+
+  .overlay.active { opacity: 1; pointer-events: all; }
+
+  .modal {
+    text-align: center;
+    max-width: 420px;
+    width: 90%;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .overlay.active .modal { transform: scale(1) translateY(0); }
+
+  .modal h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+
+  .modal .final-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--primary);
+    text-shadow: 0 0 40px var(--primary);
+    margin: 16px 0;
+  }
+
+  .modal .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-bottom: 28px;
+  }
+
+  .modal p { color: #667; margin-bottom: 28px; font-size: 1rem; }
+
+  .btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.25s;
+    text-transform: uppercase;
+    margin: 0 6px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #0080ff);
+    color: #000;
+    font-weight: 700;
+    box-shadow: 0 4px 30px rgba(0,240,255,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 8px 40px rgba(0,240,255,0.4); }
+
+  .btn-ghost {
+    background: transparent;
+    color: #889;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* Sequence bar */
+  .seq-bar {
+    position: fixed;
+    top: 75px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+    max-width: 90vw;
+    overflow-x: auto;
+    padding: 8px 12px;
+    background: rgba(6,6,15,0.6);
+    border-radius: 20px;
+  }
+
+  .seq-item {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+
+  .seq-item.waiting { background: rgba(255,255,255,0.15); }
+  .seq-item.current { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: seqPulse 0.8s infinite; }
+  .seq-item.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .seq-item.wrong-seq { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+
+  @keyframes seqPulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.5); }
+  }
+
+  /* Achievement popup */
+  .achievement {
+    position: fixed;
+    top: 110px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-30px);
+    background: rgba(255,230,0,0.08);
+    border: 1px solid var(--accent);
+    padding: 10px 24px;
+    border-radius: 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s;
+    text-shadow: 0 0 10px var(--accent);
+  }
+
+  .achievement.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Floating score */
+  .float-score {
+    position: absolute;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    pointer-events: none;
+    z-index: 20;
+    animation: floatUp 0.8s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(0.7); }
+  }
+
+  /* Difficulty ramp indicator */
+  .difficulty-bar {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 200px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    z-index: 10;
+  }
+
+  .difficulty-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    border-radius: 2px;
+    transition: all 0.5s;
+    background: linear-gradient(0deg, var(--success), var(--accent), var(--danger));
+  }
+
+  .difficulty-label {
+    position: fixed;
+    left: 14px;
+    top: calc(50% + 115px);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: #445;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="hud-left">
+    <div class="stat">
+      <div class="stat-label">Score</div>
+      <div class="stat-value score" id="scoreVal">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Combo</div>
+      <div class="stat-value combo" id="comboVal">x1</div>
+    </div>
+  </div>
+  <div class="hud-title">MEMORY LOOP 4</div>
+  <div class="hud-right">
+    <div class="stat">
+      <div class="stat-label">Lives</div>
+      <div class="stat-value lives" id="livesVal">♥♥♥</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Best</div>
+      <div class="stat-value best" id="bestVal">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Sequence -->
+<div class="seq-bar" id="seqBar"></div>
+
+<!-- Achievement -->
+<div class="achievement" id="achievement"></div>
+
+<!-- Difficulty -->
+<div class="difficulty-bar"><div class="difficulty-fill" id="diffFill" style="height:0%"></div></div>
+<div class="difficulty-label">DIFF</div>
+
+<!-- Game Area -->
+<div class="game-layer">
+  <div class="ring-container">
+    <svg class="ring-svg" id="ringSvg" viewBox="0 0 420 420"></svg>
+    <div class="center-info">
+      <div class="center-msg" id="centerMsg">BEREIT</div>
+      <div class="center-big" id="centerBig">▶</div>
+    </div>
+  </div>
+</div>
+
+<!-- Power-ups -->
+<div class="powerup-bar">
+  <button class="powerup" id="puReveal" onclick="usePowerup('reveal')" title="Sequenz nochmal zeigen">
+    👁<span class="count" id="puRevealCount">2</span>
+  </button>
+  <button class="powerup" id="puShield" onclick="usePowerup('shield')" title="1 Fehler schützen">
+    🛡<span class="count" id="puShieldCount">1</span>
+  </button>
+  <button class="powerup" id="puSlow" onclick="usePowerup('slow')" title="Zeit verlangsamen">
+    ⏳<span class="count" id="puSlowCount">1</span>
+  </button>
+</div>
+
+<!-- Modes -->
+<div class="mode-bar">
+  <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Classic</button>
+  <button class="mode-btn" data-mode="speed" onclick="setMode('speed')">Speed</button>
+  <button class="mode-btn" data-mode="chaos" onclick="setMode('chaos')">Chaos</button>
+  <button class="mode-btn" data-mode="zen" onclick="setMode('zen')">Zen</button>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">MEMORY LOOP 4</h2>
+    <div class="final-score" id="modalScore">0</div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-label">Best Combo</div><div class="stat-value combo" id="modalCombo">x1</div></div>
+      <div class="stat"><div class="stat-label">Level</div><div class="stat-value score" id="modalLevel">0</div></div>
+    </div>
+    <p id="modalMsg">Starte das Spiel</p>
+    <button class="btn btn-primary" onclick="startGame()">Start</button>
+    <button class="btn btn-ghost" onclick="closeOverlay()" id="closeBtn" style="display:none">Schließen</button>
+  </div>
+</div>
+
+<script>
+// ============ AUDIO ENGINE ============
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx;
+function ensureAudio() { if (!actx) actx = new AudioCtx(); }
+
+const NOTES = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33];
+const SUCCESS_NOTES = [523.25, 659.25, 783.99];
+
+function playTone(freq, dur = 0.15, type = 'sine', vol = 0.12) {
+  ensureAudio();
+  const o = actx.createOscillator();
+  const g = actx.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur);
+  o.connect(g);
+  g.connect(actx.destination);
+  o.start();
+  o.stop(actx.currentTime + dur);
+}
+
+function playNodeSound(i) { playTone(NOTES[i % NOTES.length], 0.2, 'triangle', 0.15); }
+function playSuccessSound(i) {
+  if (i < SUCCESS_NOTES.length) playTone(SUCCESS_NOTES[i], 0.3, 'sine', 0.1);
+}
+function playErrorSound() {
+  playTone(150, 0.4, 'sawtooth', 0.08);
+  playTone(120, 0.5, 'sawtooth', 0.06);
+}
+function playComboSound(combo) {
+  playTone(400 + combo * 50, 0.15, 'square', 0.06);
+}
+
+// ============ BACKGROUND CANVAS ============
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+const particles = [];
+
+function resizeCanvas() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+class Particle {
+  constructor() { this.reset(); }
+  reset() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.vy = (Math.random() - 0.5) * 0.3;
+    this.r = Math.random() * 1.5 + 0.5;
+    this.alpha = Math.random() * 0.4 + 0.1;
+    this.color = ['#00f0ff', '#ff00c8', '#ffe600', '#00ff88'][Math.floor(Math.random() * 4)];
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+let bgTime = 0;
+function drawBg() {
+  ctx.fillStyle = '#06060f';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.015)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Center glow
+  const grd = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 300);
+  grd.addColorStop(0, `rgba(0,240,255,${0.03 + Math.sin(bgTime) * 0.01})`);
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  particles.forEach(p => { p.update(); p.draw(); });
+  bgTime += 0.02;
+  requestAnimationFrame(drawBg);
+}
+drawBg();
+
+// ============ GAME STATE ============
+const NODE_COUNT = 8;
+const RING_RADIUS = 160;
+const CX = 210, CY = 210;
+
+let sequence = [];
+let playerPos = 0;
+let score = 0;
+let combo = 1;
+let bestCombo = 1;
+let bestScore = parseInt(localStorage.getItem('ml4_best') || '0');
+let lives = 3;
+let level = 0;
+let playing = false;
+let showing = false;
+let gameMode = 'classic';
+let shieldActive = false;
+let slowActive = false;
+let powerups = { reveal: 2, shield: 1, slow: 1 };
+
+document.getElementById('bestVal').textContent = bestScore;
+
+// ============ SVG RING ============
+const svg = document.getElementById('ringSvg');
+let nodeEls = [];
+let ringRotation = 0;
+
+function buildRing() {
+  svg.innerHTML = '';
+  nodeEls = [];
+
+  // Outer ring glow
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glowBig"><feGaussianBlur stdDeviation="10" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.15"/>
+      <stop offset="50%" stop-color="#ff00c8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0.15"/>
+    </linearGradient>`;
+  svg.appendChild(defs);
+
+  // Track ring
+  const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  track.setAttribute('cx', CX);
+  track.setAttribute('cy', CY);
+  track.setAttribute('r', RING_RADIUS);
+  track.setAttribute('fill', 'none');
+  track.setAttribute('stroke', 'url(#ringGrad)');
+  track.setAttribute('stroke-width', '2');
+  track.setAttribute('stroke-dasharray', '8 6');
+  svg.appendChild(track);
+
+  // Inner ring
+  const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  inner.setAttribute('cx', CX);
+  inner.setAttribute('cy', CY);
+  inner.setAttribute('r', RING_RADIUS - 40);
+  inner.setAttribute('fill', 'none');
+  inner.setAttribute('stroke', 'rgba(255,255,255,0.03)');
+  inner.setAttribute('stroke-width', '1');
+  svg.appendChild(inner);
+
+  // Nodes
+  const NODE_COLORS = [
+    '#00f0ff', '#ff00c8', '#ffe600', '#00ff88',
+    '#ff4466', '#aa44ff', '#ff8800', '#44ffcc'
+  ];
+
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const angle = (i / NODE_COUNT) * Math.PI * 2 - Math.PI / 2;
+    const x = CX + Math.cos(angle) * RING_RADIUS;
+    const y = CY + Math.sin(angle) * RING_RADIUS;
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(${x},${y})`);
+    g.setAttribute('data-index', i);
+    g.style.cursor = 'pointer';
+    g.style.transition = 'transform 0.2s';
+
+    // Outer glow circle
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    glow.setAttribute('r', '30');
+    glow.setAttribute('fill', NODE_COLORS[i]);
+    glow.setAttribute('opacity', '0');
+    glow.setAttribute('filter', 'url(#glowBig)');
+    g.appendChild(glow);
+
+    // Main circle
+    const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circ.setAttribute('r', '22');
+    circ.setAttribute('fill', 'rgba(255,255,255,0.04)');
+    circ.setAttribute('stroke', NODE_COLORS[i]);
+    circ.setAttribute('stroke-width', '2');
+    circ.setAttribute('opacity', '0.6');
+    g.appendChild(circ);
+
+    // Inner dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('r', '6');
+    dot.setAttribute('fill', NODE_COLORS[i]);
+    dot.setAttribute('opacity', '0.3');
+    g.appendChild(dot);
+
+    // Number
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dy', '5');
+    text.setAttribute('fill', NODE_COLORS[i]);
+    text.setAttribute('font-family', 'Orbitron, sans-serif');
+    text.setAttribute('font-size', '11');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('opacity', '0.8');
+    text.textContent = i + 1;
+    g.appendChild(text);
+
+    // Click handler
+    g.addEventListener('pointerdown', () => onNodeClick(i));
+
+    // Hover
+    g.addEventListener('pointerenter', () => {
+      if (!playing || showing) return;
+      circ.setAttribute('opacity', '1');
+      dot.setAttribute('opacity', '0.7');
+    });
+    g.addEventListener('pointerleave', () => {
+      if (!playing || showing) return;
+      circ.setAttribute('opacity', '0.6');
+      dot.setAttribute('opacity', '0.3');
+    });
+
+    svg.appendChild(g);
+    nodeEls.push({ g, glow, circ, dot, color: NODE_COLORS[i] });
+  }
+}
+
+function lightNode(i, duration = 300) {
+  const n = nodeEls[i];
+  n.glow.setAttribute('opacity', '0.4');
+  n.circ.setAttribute('opacity', '1');
+  n.circ.setAttribute('stroke-width', '3');
+  n.dot.setAttribute('opacity', '1');
+  n.g.setAttribute('transform', n.g.getAttribute('transform').replace(/scale\([^)]*\)/, '') + ' scale(1.15)');
+
+  setTimeout(() => {
+    n.glow.setAttribute('opacity', '0');
+    n.circ.setAttribute('opacity', '0.6');
+    n.circ.setAttribute('stroke-width', '2');
+    n.dot.setAttribute('opacity', '0.3');
+    const base = n.g.getAttribute('transform');
+    n.g.setAttribute('transform', base.replace(/ scale\([^)]*\)/, ''));
+  }, duration);
+}
+
+function flashCorrect(i) {
+  const n = nodeEls[i];
+  n.glow.setAttribute('opacity', '0.5');
+  n.glow.setAttribute('fill', '#00ff88');
+  n.dot.setAttribute('fill', '#00ff88');
+  setTimeout(() => {
+    n.glow.setAttribute('opacity', '0');
+    n.glow.setAttribute('fill', n.color);
+    n.dot.setAttribute('fill', n.color);
+  }, 400);
+}
+
+function flashWrong(i) {
+  const n = nodeEls[i];
+  n.glow.setAttribute('opacity', '0.6');
+  n.glow.setAttribute('fill', '#ff2244');
+  n.circ.setAttribute('stroke', '#ff2244');
+  setTimeout(() => {
+    n.glow.setAttribute('opacity', '0');
+    n.glow.setAttribute('fill', n.color);
+    n.circ.setAttribute('stroke', n.color);
+  }, 500);
+}
+
+buildRing();
+
+// ============ UI UPDATES ============
+function updateHUD() {
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('comboVal').textContent = 'x' + combo;
+  document.getElementById('bestVal').textContent = bestScore;
+  let hearts = '';
+  for (let i = 0; i < lives; i++) hearts += '♥';
+  document.getElementById('livesVal').textContent = hearts || '—';
+  document.getElementById('diffFill').style.height = Math.min(level * 5, 100) + '%';
+
+  document.getElementById('puRevealCount').textContent = powerups.reveal;
+  document.getElementById('puShieldCount').textContent = powerups.shield;
+  document.getElementById('puSlowCount').textContent = powerups.slow;
+
+  document.getElementById('puReveal').classList.toggle('disabled', powerups.reveal <= 0 || !playing);
+  document.getElementById('puShield').classList.toggle('disabled', powerups.shield <= 0 || shieldActive);
+  document.getElementById('puSlow').classList.toggle('disabled', powerups.slow <= 0 || slowActive);
+}
+
+function updateSeqBar() {
+  const bar = document.getElementById('seqBar');
+  bar.innerHTML = '';
+  for (let i = 0; i < sequence.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'seq-item';
+    if (showing) dot.classList.add('waiting');
+    else if (i < playerPos) dot.classList.add('done');
+    else if (i === playerPos) dot.classList.add('current');
+    bar.appendChild(dot);
+  }
+}
+
+function setCenter(msg, big) {
+  document.getElementById('centerMsg').textContent = msg;
+  document.getElementById('centerBig').textContent = big;
+}
+
+function floatScore(x, y, text, color) {
+  const el = document.createElement('div');
+  el.className = 'float-score';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.color = color;
+  el.style.textShadow = `0 0 20px ${color}`;
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function showAchievement(text) {
+  const el = document.getElementById('achievement');
+  el.textContent = '★ ' + text;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============ GAME LOGIC ============
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function getSpeed() {
+  const base = slowActive ? 1400 : 700;
+  if (gameMode === 'speed') return Math.max(250, base - level * 40);
+  if (gameMode === 'zen') return base + 200;
+  return Math.max(300, base - level * 25);
+}
+
+function getPause() {
+  return gameMode === 'speed' ? 80 : 150;
+}
+
+function addToSequence() {
+  if (gameMode === 'chaos' && level > 3) {
+    // Chaos: duplicate or shift
+    const r = Math.random();
+    if (r < 0.3) {
+      sequence.push(sequence[sequence.length - 1]); // repeat last
+    } else if (r < 0.5) {
+      sequence.push((sequence[sequence.length - 1] + 3) % NODE_COUNT + 1); // skip pattern
+    } else {
+      sequence.push(Math.floor(Math.random() * NODE_COUNT) + 1);
+    }
+  } else {
+    sequence.push(Math.floor(Math.random() * NODE_COUNT) + 1);
+  }
+}
+
+async function showSequence() {
+  showing = true;
+  setCenter('MERKEN', sequence.length);
+  updateSeqBar();
+
+  await sleep(600);
+
+  for (let i = 0; i < sequence.length; i++) {
+    const n = sequence[i] - 1;
+    lightNode(n, getSpeed() - 50);
+    playNodeSound(n);
+    updateSeqBar();
+    await sleep(getSpeed());
+    if (getPause() > 0) await sleep(getPause());
+  }
+
+  showing = false;
+  playerPos = 0;
+  setCenter('DEIN ZUG', '●');
+  updateSeqBar();
+}
+
+function nextRound() {
+  level++;
+  addToSequence();
+  updateHUD();
+  showSequence();
+}
+
+function onNodeClick(i) {
+  if (!playing || showing) return;
+  ensureAudio();
+
+  const expected = sequence[playerPos] - 1;
+
+  if (i === expected) {
+    // Correct
+    playNodeSound(i);
+    flashCorrect(i);
+
+    const pts = 10 * combo * (gameMode === 'speed' ? 2 : 1);
+    score += pts;
+    if (combo < 20) combo++;
+    if (combo > bestCombo) bestCombo = combo;
+
+    // Float score at node position
+    const angle = (i / NODE_COUNT) * Math.PI * 2 - Math.PI / 2;
+    const rect = svg.getBoundingClientRect();
+    const nx = rect.left + (CX + Math.cos(angle) * RING_RADIUS) * (rect.width / 420);
+    const ny = rect.top + (CY + Math.sin(angle) * RING_RADIUS) * (rect.height / 420);
+    floatScore(nx, ny, '+' + pts, nodeEls[i].color);
+
+    if (combo % 5 === 0) {
+      playComboSound(combo);
+      showAchievement(combo + 'x COMBO!');
+    }
+
+    playerPos++;
+    updateHUD();
+    updateSeqBar();
+
+    if (playerPos === sequence.length) {
+      // Round complete
+      playSuccessSound(0);
+      setCenter('LEVEL ' + level, '✓');
+      playing = false;
+
+      // Bonus lives/powerups
+      if (level % 5 === 0 && lives < 5) lives++;
+      if (level % 7 === 0) powerups.reveal = Math.min(powerups.reveal + 1, 3);
+      if (level % 10 === 0) powerups.shield = Math.min(powerups.shield + 1, 2);
+
+      updateHUD();
+
+      setTimeout(() => {
+        playing = true;
+        nextRound();
+      }, 1000);
+    }
+  } else {
+    // Wrong
+    playErrorSound();
+    flashWrong(i);
+
+    if (shieldActive) {
+      shieldActive = false;
+      showAchievement('SCHILD AKTIVIERT!');
+      playTone(800, 0.2, 'sine', 0.1);
+      updateHUD();
+      return;
+    }
+
+    combo = 1;
+    lives--;
+    updateHUD();
+
+    if (lives <= 0 || gameMode === 'zen') {
+      if (gameMode === 'zen') {
+        // Zen: no game over, just continue
+        combo = 1;
+        playerPos = 0;
+        updateHUD();
+        updateSeqBar();
+        return;
+      }
+      // Game over
+      playing = false;
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('ml4_best', bestScore);
+      }
+      showGameOver();
+    } else {
+      playerPos = 0;
+      updateSeqBar();
+      setCenter('FALSCH!', '✗');
+      setTimeout(() => showSequence(), 1200);
+    }
+  }
+}
+
+function showGameOver() {
+  updateHUD();
+  document.getElementById('modalTitle').textContent = 'GAME OVER';
+  document.getElementById('modalScore').textContent = score;
+  document.getElementById('modalCombo').textContent = 'x' + bestCombo;
+  document.getElementById('modalLevel').textContent = level;
+  const msgs = [
+    'Guter Start!', 'Nicht schlecht!', 'Stark!', 'Beeindruckend!',
+    'Absoluter Champion!', 'Legende!', 'Göttlich!'
+  ];
+  document.getElementById('modalMsg').textContent = msgs[Math.min(Math.floor(level / 3), msgs.length - 1)];
+  document.getElementById('closeBtn').style.display = 'inline-block';
+  document.getElementById('overlay').classList.add('active');
+}
+
+// ============ POWERUPS ============
+function usePowerup(type) {
+  if (!playing || showing) return;
+  ensureAudio();
+
+  if (type === 'reveal' && powerups.reveal > 0) {
+    powerups.reveal--;
+    playTone(600, 0.3, 'sine', 0.1);
+    showAchievement('VISION!');
+    // Re-show sequence
+    playerPos = 0;
+    showSequence();
+    updateHUD();
+  }
+
+  if (type === 'shield' && powerups.shield > 0 && !shieldActive) {
+    powerups.shield--;
+    shieldActive = true;
+    playTone(500, 0.4, 'triangle', 0.1);
+    showAchievement('SCHILD AKTIV!');
+    updateHUD();
+  }
+
+  if (type === 'slow' && powerups.slow > 0 && !slowActive) {
+    powerups.slow--;
+    slowActive = true;
+    playTone(300, 0.5, 'sine', 0.08);
+    showAchievement('ZEIT LANGSAMER!');
+    updateHUD();
+    setTimeout(() => { slowActive = false; updateHUD(); }, 15000);
+  }
+}
+
+// ============ MODES ============
+function setMode(mode) {
+  gameMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+
+// ============ START / RESET ============
+function startGame() {
+  closeOverlay();
+  sequence = [];
+  playerPos = 0;
+  score = 0;
+  combo = 1;
+  bestCombo = 1;
+  lives = gameMode === 'zen' ? 999 : 3;
+  level = 0;
+  playing = true;
+  shieldActive = false;
+  slowActive = false;
+  powerups = { reveal: 2, shield: 1, slow: 1 };
+  updateHUD();
+  nextRound();
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('active');
+}
+
+// Init
+updateHUD();
+document.getElementById('overlay').classList.add('active');
+</script>
+</body>
+</html>
