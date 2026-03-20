@@ -330,39 +330,34 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     z-index: 10;
     max-width: 85vw;
-    padding: 6px 12px;
-    background: rgba(6,6,15,0.7);
-    border-radius: 12px;
-    -webkit-overflow-scrolling: touch;
-  }
-  .seq-ring-row {
-    display: flex;
-    gap: 3px;
     overflow-x: auto;
-    scrollbar-width: none;
+    overflow-y: hidden;
+    padding: 8px 14px;
+    background: rgba(6,6,15,0.7);
+    border-radius: 20px;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
-  .seq-ring-row::-webkit-scrollbar { display: none; }
+  .seq-bar::-webkit-scrollbar { display: none; }
 
   .seq-item {
-    width: 8px; height: 8px;
+    width: 10px; height: 10px;
     border-radius: 50%;
     background: rgba(255,255,255,0.08);
     flex-shrink: 0;
     transition: all 0.3s;
   }
 
-  .seq-item.waiting { background: rgba(255,255,255,0.15); }
-  .seq-item.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: seqPulse 0.8s infinite; }
-  .seq-item.done { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .seq-item.waiting { opacity: 0.4 !important; }
+  .seq-item.current { box-shadow: 0 0 8px var(--accent); animation: seqPulse 0.8s infinite; }
+  .seq-item.done { filter: brightness(2) saturate(0.5); }
 
   @keyframes seqPulse {
-    0%,100% { transform: scale(1); }
-    50% { transform: scale(1.6); }
+    0%,100% { transform: scale(1); box-shadow: 0 0 6px var(--accent); }
+    50% { transform: scale(1.6); box-shadow: 0 0 12px var(--accent); }
   }
 
   /* Achievement popup */
@@ -399,7 +394,7 @@
     font-weight: 900;
     font-size: 1.2rem;
     pointer-events: none;
-    z-index: 20;
+    z-index: 50;
     animation: floatUp 0.8s ease-out forwards;
   }
 
@@ -563,7 +558,7 @@
       <div class="stat"><div class="stat-label">Best Combo</div><div class="stat-value combo" id="modalCombo">x1</div></div>
       <div class="stat"><div class="stat-label">Level</div><div class="stat-value score" id="modalLevel">0</div></div>
     </div>
-    <p id="modalMsg">Starte das Spiel</p>
+    <p id="modalMsg">Merke die Sequenz und tippe sie ab.<br>3 Ringe — Level II und V schalten neue frei.</p>
     <button class="btn btn-primary" onclick="startGame()">Start</button>
     <button class="btn btn-ghost" onclick="closeOverlay()" id="closeBtn" style="display:none">Schließen</button>
   </div>
@@ -576,8 +571,8 @@ let actx;
 function ensureAudio() { if (!actx) actx = new AudioCtx(); }
 
 const NOTES_INNER  = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
-const NOTES_MIDDLE = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
-const NOTES_OUTER  = [1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, 2093.00];
+const NOTES_MIDDLE = [392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99];
+const NOTES_OUTER  = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
 const RING_NOTES = [NOTES_INNER, NOTES_MIDDLE, NOTES_OUTER];
 const SUCCESS_NOTES = [523.25, 659.25, 783.99];
 
@@ -682,9 +677,9 @@ drawBg();
 // ============ GAME STATE ============
 const RING_COUNT = 3;
 const NODES_PER_RING = 8;
-const RING_RADII = [75, 135, 195];
-const RING_SIZES = [20, 17, 14];
-const RING_HIT = [34, 30, 26];
+const RING_RADII = [90, 150, 200];
+const RING_SIZES = [18, 15, 12];
+const RING_HIT = [26, 22, 18];
 const CX = 210, CY = 210;
 
 const RING_COLORS = [
@@ -735,9 +730,10 @@ function buildRing() {
     track.setAttribute('r', RING_RADII[r]);
     track.setAttribute('fill', 'none');
     track.setAttribute('stroke', RING_COLORS[r][0]);
-    track.setAttribute('stroke-opacity', '0.12');
+    track.setAttribute('stroke-opacity', r === 0 ? '0.15' : '0.06');
     track.setAttribute('stroke-width', '1.5');
     track.setAttribute('stroke-dasharray', r === 0 ? '10 4' : '6 8');
+    track.id = 'ringTrack' + r;
     svg.appendChild(track);
 
     for (let n = 0; n < NODES_PER_RING; n++) {
@@ -753,6 +749,7 @@ function buildRing() {
       g.setAttribute('data-ring', r);
       g.setAttribute('data-node', n);
       g.style.cursor = 'pointer';
+      g.style.transition = 'opacity 0.5s';
 
       const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       hit.setAttribute('r', hitSz);
@@ -771,13 +768,13 @@ function buildRing() {
       circ.setAttribute('fill', 'rgba(255,255,255,0.04)');
       circ.setAttribute('stroke', color);
       circ.setAttribute('stroke-width', r === 0 ? '2.5' : '2');
-      circ.setAttribute('opacity', '0.6');
+      circ.setAttribute('opacity', r === 0 ? '0.6' : '0.15');
       g.appendChild(circ);
 
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('r', sz * 0.35);
       dot.setAttribute('fill', color);
-      dot.setAttribute('opacity', '0.3');
+      dot.setAttribute('opacity', r === 0 ? '0.3' : '0.08');
       g.appendChild(dot);
 
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -787,11 +784,10 @@ function buildRing() {
       text.setAttribute('font-family', 'Orbitron, sans-serif');
       text.setAttribute('font-size', r === 0 ? '10' : '8');
       text.setAttribute('font-weight', '700');
-      text.setAttribute('opacity', '0.7');
+      text.setAttribute('opacity', r === 0 ? '0.7' : '0.15');
       text.textContent = n + 1;
       g.appendChild(text);
 
-      const idx = nodeId(r, n);
       g.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         onNodeClick(r, n);
@@ -802,18 +798,20 @@ function buildRing() {
     }
   }
 
-  // Center ring label
+  // Ring labels
+  const labels = ['I', 'II', 'III'];
   for (let r = 0; r < RING_COUNT; r++) {
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    const ly = CY - RING_RADII[r] + (r === 0 ? -12 : -10);
     label.setAttribute('x', CX);
-    label.setAttribute('y', ly);
+    label.setAttribute('y', CY - RING_RADII[r] - 12);
     label.setAttribute('text-anchor', 'middle');
     label.setAttribute('fill', RING_COLORS[r][0]);
     label.setAttribute('font-family', 'Orbitron, sans-serif');
-    label.setAttribute('font-size', '7');
-    label.setAttribute('opacity', '0.3');
-    label.textContent = ['INNEN', 'MITTE', 'AUSSEN'][r];
+    label.setAttribute('font-size', '9');
+    label.setAttribute('font-weight', '700');
+    label.setAttribute('opacity', r === 0 ? '0.25' : '0.08');
+    label.id = 'ringLabel' + r;
+    label.textContent = labels[r];
     svg.appendChild(label);
   }
 }
@@ -863,6 +861,7 @@ function flashWrong(ring, node) {
 }
 
 buildRing();
+unlockRing(0);
 
 // ============ UI UPDATES ============
 function updateHUD() {
@@ -887,31 +886,21 @@ function updateSeqBar() {
   const bar = document.getElementById('seqBar');
   bar.innerHTML = '';
 
-  for (let r = 0; r < RING_COUNT; r++) {
-    const row = document.createElement('div');
-    row.className = 'seq-ring-row';
+  for (let i = 0; i < sequence.length; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'seq-item';
+    dot.style.background = RING_COLORS[sequence[i].ring][0];
 
-    let hasItems = false;
-    for (let i = 0; i < sequence.length; i++) {
-      if (sequence[i].ring !== r) continue;
-      hasItems = true;
-      const dot = document.createElement('div');
-      dot.className = 'seq-item';
-      dot.style.background = RING_COLORS[r][0];
-
-      if (showing) {
-        dot.style.opacity = '0.4';
-      } else if (i < playerPos) {
-        dot.classList.add('done');
-      } else if (i === playerPos) {
-        dot.classList.add('current');
-      } else {
-        dot.style.opacity = '0.35';
-      }
-      row.appendChild(dot);
+    if (showing) {
+      dot.classList.add('waiting');
+    } else if (i < playerPos) {
+      dot.classList.add('done');
+    } else if (i === playerPos) {
+      dot.classList.add('current');
+    } else {
+      dot.style.opacity = '0.35';
     }
-
-    if (hasItems) bar.appendChild(row);
+    bar.appendChild(dot);
   }
 
   const current = bar.querySelector('.current');
@@ -957,10 +946,20 @@ function getPause() {
 }
 
 function addToSequence() {
-  // Unlock rings progressively: inner first, then middle, then outer
+  // Unlock rings progressively
   let maxRing = 0;
-  if (level >= 3) maxRing = 1;
-  if (level >= 7) maxRing = 2;
+  if (level >= 2) maxRing = 1;
+  if (level >= 5) maxRing = 2;
+
+  // Visual unlock + announcement
+  if (level === 2) {
+    unlockRing(1);
+    showAchievement('RING II FREIGESCHALTET!');
+  }
+  if (level === 5) {
+    unlockRing(2);
+    showAchievement('RING III FREIGESCHALTET!');
+  }
 
   let ring, node;
   if (gameMode === 'chaos' && level > 3 && Math.random() < 0.3) {
@@ -972,6 +971,24 @@ function addToSequence() {
     node = Math.floor(Math.random() * NODES_PER_RING);
   }
   sequence.push({ ring, node });
+}
+
+function unlockRing(r) {
+  // Brighten ring track
+  const track = document.getElementById('ringTrack' + r);
+  if (track) track.setAttribute('stroke-opacity', '0.15');
+
+  // Brighten label
+  const label = document.getElementById('ringLabel' + r);
+  if (label) label.setAttribute('opacity', '0.25');
+
+  // Brighten all nodes in this ring
+  for (let n = 0; n < NODES_PER_RING; n++) {
+    const el = nodeEls[nodeId(r, n)];
+    el.circ.setAttribute('opacity', '0.6');
+    el.dot.setAttribute('opacity', '0.3');
+    el.g.querySelector('text').setAttribute('opacity', '0.7');
+  }
 }
 
 async function showSequence() {
@@ -1015,7 +1032,7 @@ function onNodeClick(ring, node) {
     flashCorrect(ring, node);
     haptic('light');
 
-    const levelBonus = 1 + Math.floor(level / 3) * 0.5;
+    const levelBonus = 1 + level * 0.1;
     const speedBonus = gameMode === 'speed' ? 2 : 1;
     const pts = Math.round(10 * ringMultiplier * combo * levelBonus * speedBonus);
     score += pts;
@@ -1026,7 +1043,7 @@ function onNodeClick(ring, node) {
     const rect = svg.getBoundingClientRect();
     const nx = rect.left + (CX + Math.cos(angle) * RING_RADII[ring]) * (rect.width / 420);
     const ny = rect.top + (CY + Math.sin(angle) * RING_RADII[ring]) * (rect.height / 420);
-    floatScore(nx, ny, '+' + pts, nodeEls[nodeId(ring, node)].color);
+    floatScore(nx, ny, '+' + pts + (ringMultiplier > 1 ? ' x' + ringMultiplier : ''), nodeEls[nodeId(ring, node)].color);
 
     if (combo % 5 === 0) {
       playComboSound(combo);
@@ -1165,6 +1182,9 @@ function startGame() {
   shieldActive = false;
   slowActive = false;
   powerups = { reveal: 2, shield: 1, slow: 1 };
+  // Reset ring visuals
+  buildRing();
+  unlockRing(0);
   updateHUD();
   nextRound();
 }
