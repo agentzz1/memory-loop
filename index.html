@@ -558,7 +558,7 @@
       <div class="stat"><div class="stat-label">Best Combo</div><div class="stat-value combo" id="modalCombo">x1</div></div>
       <div class="stat"><div class="stat-label">Level</div><div class="stat-value score" id="modalLevel">0</div></div>
     </div>
-    <p id="modalMsg">Merke die Sequenz und tippe sie ab.<br>3 Ringe — Level II und V schalten neue frei.</p>
+    <p id="modalMsg">Merke die Sequenz und tippe sie ab.<br>Jeder Level schaltet einen neuen Ring frei.</p>
     <button class="btn btn-primary" onclick="startGame()">Start</button>
     <button class="btn btn-ghost" onclick="closeOverlay()" id="closeBtn" style="display:none">Schließen</button>
   </div>
@@ -946,20 +946,8 @@ function getPause() {
 }
 
 function addToSequence() {
-  // Unlock rings progressively
-  let maxRing = 0;
-  if (level >= 2) maxRing = 1;
-  if (level >= 5) maxRing = 2;
-
-  // Visual unlock + announcement
-  if (level === 2) {
-    unlockRing(1);
-    showAchievement('RING II FREIGESCHALTET!');
-  }
-  if (level === 5) {
-    unlockRing(2);
-    showAchievement('RING III FREIGESCHALTET!');
-  }
+  let maxRing = Math.min(level - 1, 2);
+  updateRingVisibility(maxRing);
 
   let ring, node;
   if (gameMode === 'chaos' && level > 3 && Math.random() < 0.3) {
@@ -973,16 +961,19 @@ function addToSequence() {
   sequence.push({ ring, node });
 }
 
+function updateRingVisibility(maxRing) {
+  for (let r = 0; r <= maxRing; r++) {
+    unlockRing(r);
+  }
+}
+
 function unlockRing(r) {
-  // Brighten ring track
   const track = document.getElementById('ringTrack' + r);
   if (track) track.setAttribute('stroke-opacity', '0.15');
 
-  // Brighten label
   const label = document.getElementById('ringLabel' + r);
   if (label) label.setAttribute('opacity', '0.25');
 
-  // Brighten all nodes in this ring
   for (let n = 0; n < NODES_PER_RING; n++) {
     const el = nodeEls[nodeId(r, n)];
     el.circ.setAttribute('opacity', '0.6');
