@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 512 512'>
+    <rect width='512' height='512' rx='80' fill='#06060f'/>
+    <circle cx='256' cy='256' r='160' fill='none' stroke='url(#g)' stroke-width='3' stroke-dasharray='12 8'/>
+    <circle cx='256' cy='120' r='22' fill='#00f0ff'/>
+    <circle cx='367' cy='175' r='22' fill='#ff00c8'/>
+    <circle cx='392' cy='288' r='22' fill='#ffe600'/>
+    <circle cx='340' cy='392' r='22' fill='#00ff88'/>
+    <circle cx='172' cy='392' r='22' fill='#ff4466'/>
+    <circle cx='120' cy='288' r='22' fill='#aa44ff'/>
+    <circle cx='145' cy='175' r='22' fill='#ff8800'/>
+    <circle cx='256' cy='392' r='22' fill='#44ffcc'/>
+    <text x='256' y='272' text-anchor='middle' font-family='sans-serif' font-size='72' font-weight='900' fill='url(#gt)'>ML</text>
+    <defs>
+      <linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='100%'>
+        <stop offset='0%' stop-color='#00f0ff' stop-opacity='0.4'/>
+        <stop offset='100%' stop-color='#ff00c8' stop-opacity='0.4'/>
+      </linearGradient>
+      <linearGradient id='gt' x1='0%' y1='0%' x2='100%' y2='100%'>
+        <stop offset='0%' stop-color='#00f0ff'/>
+        <stop offset='100%' stop-color='#ff00c8'/>
+      </linearGradient>
+    </defs>
+  </svg>
