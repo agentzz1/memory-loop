@@ -114,12 +114,12 @@
   /* Ring Container */
   .ring-container {
     position: relative;
-    width: min(88vw, 400px);
-    height: min(88vw, 400px);
+    width: min(92vw, 420px);
+    height: min(92vw, 420px);
   }
 
   @media(orientation: landscape) and (max-height: 500px){
-    .ring-container { width: min(55vh, 360px); height: min(55vh, 360px); }
+    .ring-container { width: min(60vh, 380px); height: min(60vh, 380px); }
   }
 
   .ring-svg {
@@ -330,21 +330,26 @@
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 4px;
+    flex-direction: column;
+    gap: 3px;
     z-index: 10;
     max-width: 85vw;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 8px 14px;
+    padding: 6px 12px;
     background: rgba(6,6,15,0.7);
-    border-radius: 20px;
+    border-radius: 12px;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
   }
-  .seq-bar::-webkit-scrollbar { display: none; }
+  .seq-ring-row {
+    display: flex;
+    gap: 3px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .seq-ring-row::-webkit-scrollbar { display: none; }
 
   .seq-item {
-    width: 10px; height: 10px;
+    width: 8px; height: 8px;
     border-radius: 50%;
     background: rgba(255,255,255,0.08);
     flex-shrink: 0;
@@ -352,13 +357,12 @@
   }
 
   .seq-item.waiting { background: rgba(255,255,255,0.15); }
-  .seq-item.current { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: seqPulse 0.8s infinite; }
-  .seq-item.done { background: var(--success); box-shadow: 0 0 8px var(--success); }
-  .seq-item.wrong-seq { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+  .seq-item.current { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: seqPulse 0.8s infinite; }
+  .seq-item.done { background: var(--success); box-shadow: 0 0 6px var(--success); }
 
   @keyframes seqPulse {
     0%,100% { transform: scale(1); }
-    50% { transform: scale(1.5); }
+    50% { transform: scale(1.6); }
   }
 
   /* Achievement popup */
@@ -571,7 +575,10 @@ const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let actx;
 function ensureAudio() { if (!actx) actx = new AudioCtx(); }
 
-const NOTES = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33];
+const NOTES_INNER  = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+const NOTES_MIDDLE = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
+const NOTES_OUTER  = [1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, 2093.00];
+const RING_NOTES = [NOTES_INNER, NOTES_MIDDLE, NOTES_OUTER];
 const SUCCESS_NOTES = [523.25, 659.25, 783.99];
 
 function playTone(freq, dur = 0.15, type = 'sine', vol = 0.12) {
@@ -588,7 +595,9 @@ function playTone(freq, dur = 0.15, type = 'sine', vol = 0.12) {
   o.stop(actx.currentTime + dur);
 }
 
-function playNodeSound(i) { playTone(NOTES[i % NOTES.length], 0.2, 'triangle', 0.15); }
+function playNodeSound(ring, node) {
+  playTone(RING_NOTES[ring][node % 8], 0.2, 'triangle', 0.15);
+}
 function playSuccessSound(i) {
   if (i < SUCCESS_NOTES.length) playTone(SUCCESS_NOTES[i], 0.3, 'sine', 0.1);
 }
@@ -596,11 +605,10 @@ function playErrorSound() {
   playTone(150, 0.4, 'sawtooth', 0.08);
   playTone(120, 0.5, 'sawtooth', 0.06);
 }
-function playComboSound(combo) {
-  playTone(400 + combo * 50, 0.15, 'square', 0.06);
+function playComboSound(c) {
+  playTone(400 + c * 50, 0.15, 'square', 0.06);
 }
 
-// Haptic feedback
 function haptic(style = 'light') {
   if (navigator.vibrate) {
     if (style === 'light') navigator.vibrate(10);
@@ -656,20 +664,15 @@ let bgTime = 0;
 function drawBg() {
   ctx.fillStyle = '#06060f';
   ctx.fillRect(0, 0, W, H);
-
-  // Grid
   ctx.strokeStyle = 'rgba(255,255,255,0.015)';
   ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-
-  // Center glow
   const grd = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 250);
   grd.addColorStop(0, `rgba(0,240,255,${0.03 + Math.sin(bgTime) * 0.01})`);
   grd.addColorStop(1, 'transparent');
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, W, H);
-
   particles.forEach(p => { p.update(); p.draw(); });
   bgTime += 0.02;
   requestAnimationFrame(drawBg);
@@ -677,9 +680,18 @@ function drawBg() {
 drawBg();
 
 // ============ GAME STATE ============
-const NODE_COUNT = 8;
-const RING_RADIUS = 160;
+const RING_COUNT = 3;
+const NODES_PER_RING = 8;
+const RING_RADII = [75, 135, 195];
+const RING_SIZES = [20, 17, 14];
+const RING_HIT = [34, 30, 26];
 const CX = 210, CY = 210;
+
+const RING_COLORS = [
+  ['#00f0ff','#ff00c8','#ffe600','#00ff88','#ff4466','#aa44ff','#ff8800','#44ffcc'],
+  ['#00ddff','#ee00bb','#eecc00','#00dd77','#dd3355','#9933ee','#ee7700','#33ddbb'],
+  ['#00aacc','#bb0099','#ccaa00','#00aa55','#aa2244','#7722cc','#cc5500','#22aa99']
+];
 
 let sequence = [];
 let playerPos = 0;
@@ -702,6 +714,8 @@ document.getElementById('bestVal').textContent = bestScore;
 const svg = document.getElementById('ringSvg');
 let nodeEls = [];
 
+function nodeId(ring, node) { return ring * NODES_PER_RING + node; }
+
 function buildRing() {
   svg.innerHTML = '';
   nodeEls = [];
@@ -711,116 +725,121 @@ function buildRing() {
     <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/>
     <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="glowBig"><feGaussianBlur stdDeviation="10" result="blur"/>
-    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.15"/>
-      <stop offset="50%" stop-color="#ff00c8" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#00f0ff" stop-opacity="0.15"/>
-    </linearGradient>`;
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
   svg.appendChild(defs);
 
-  const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  track.setAttribute('cx', CX);
-  track.setAttribute('cy', CY);
-  track.setAttribute('r', RING_RADIUS);
-  track.setAttribute('fill', 'none');
-  track.setAttribute('stroke', 'url(#ringGrad)');
-  track.setAttribute('stroke-width', '2');
-  track.setAttribute('stroke-dasharray', '8 6');
-  svg.appendChild(track);
+  for (let r = 0; r < RING_COUNT; r++) {
+    const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    track.setAttribute('cx', CX);
+    track.setAttribute('cy', CY);
+    track.setAttribute('r', RING_RADII[r]);
+    track.setAttribute('fill', 'none');
+    track.setAttribute('stroke', RING_COLORS[r][0]);
+    track.setAttribute('stroke-opacity', '0.12');
+    track.setAttribute('stroke-width', '1.5');
+    track.setAttribute('stroke-dasharray', r === 0 ? '10 4' : '6 8');
+    svg.appendChild(track);
 
-  const inner = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  inner.setAttribute('cx', CX);
-  inner.setAttribute('cy', CY);
-  inner.setAttribute('r', RING_RADIUS - 40);
-  inner.setAttribute('fill', 'none');
-  inner.setAttribute('stroke', 'rgba(255,255,255,0.03)');
-  inner.setAttribute('stroke-width', '1');
-  svg.appendChild(inner);
+    for (let n = 0; n < NODES_PER_RING; n++) {
+      const angle = (n / NODES_PER_RING) * Math.PI * 2 - Math.PI / 2;
+      const x = CX + Math.cos(angle) * RING_RADII[r];
+      const y = CY + Math.sin(angle) * RING_RADII[r];
+      const color = RING_COLORS[r][n];
+      const sz = RING_SIZES[r];
+      const hitSz = RING_HIT[r];
 
-  const NODE_COLORS = [
-    '#00f0ff', '#ff00c8', '#ffe600', '#00ff88',
-    '#ff4466', '#aa44ff', '#ff8800', '#44ffcc'
-  ];
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', `translate(${x},${y})`);
+      g.setAttribute('data-ring', r);
+      g.setAttribute('data-node', n);
+      g.style.cursor = 'pointer';
 
-  for (let i = 0; i < NODE_COUNT; i++) {
-    const angle = (i / NODE_COUNT) * Math.PI * 2 - Math.PI / 2;
-    const x = CX + Math.cos(angle) * RING_RADIUS;
-    const y = CY + Math.sin(angle) * RING_RADIUS;
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      hit.setAttribute('r', hitSz);
+      hit.setAttribute('fill', 'transparent');
+      g.appendChild(hit);
 
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('transform', `translate(${x},${y})`);
-    g.setAttribute('data-index', i);
-    g.style.cursor = 'pointer';
+      const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      glow.setAttribute('r', sz + 10);
+      glow.setAttribute('fill', color);
+      glow.setAttribute('opacity', '0');
+      glow.setAttribute('filter', 'url(#glowBig)');
+      g.appendChild(glow);
 
-    // Hit area (invisible larger circle for touch)
-    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    hit.setAttribute('r', '36');
-    hit.setAttribute('fill', 'transparent');
-    g.appendChild(hit);
+      const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circ.setAttribute('r', sz);
+      circ.setAttribute('fill', 'rgba(255,255,255,0.04)');
+      circ.setAttribute('stroke', color);
+      circ.setAttribute('stroke-width', r === 0 ? '2.5' : '2');
+      circ.setAttribute('opacity', '0.6');
+      g.appendChild(circ);
 
-    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    glow.setAttribute('r', '32');
-    glow.setAttribute('fill', NODE_COLORS[i]);
-    glow.setAttribute('opacity', '0');
-    glow.setAttribute('filter', 'url(#glowBig)');
-    g.appendChild(glow);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('r', sz * 0.35);
+      dot.setAttribute('fill', color);
+      dot.setAttribute('opacity', '0.3');
+      g.appendChild(dot);
 
-    const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circ.setAttribute('r', '24');
-    circ.setAttribute('fill', 'rgba(255,255,255,0.04)');
-    circ.setAttribute('stroke', NODE_COLORS[i]);
-    circ.setAttribute('stroke-width', '2.5');
-    circ.setAttribute('opacity', '0.6');
-    g.appendChild(circ);
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('dy', '4');
+      text.setAttribute('fill', color);
+      text.setAttribute('font-family', 'Orbitron, sans-serif');
+      text.setAttribute('font-size', r === 0 ? '10' : '8');
+      text.setAttribute('font-weight', '700');
+      text.setAttribute('opacity', '0.7');
+      text.textContent = n + 1;
+      g.appendChild(text);
 
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('r', '7');
-    dot.setAttribute('fill', NODE_COLORS[i]);
-    dot.setAttribute('opacity', '0.3');
-    g.appendChild(dot);
+      const idx = nodeId(r, n);
+      g.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        onNodeClick(r, n);
+      });
 
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('text-anchor', 'middle');
-    text.setAttribute('dy', '5');
-    text.setAttribute('fill', NODE_COLORS[i]);
-    text.setAttribute('font-family', 'Orbitron, sans-serif');
-    text.setAttribute('font-size', '12');
-    text.setAttribute('font-weight', '700');
-    text.setAttribute('opacity', '0.8');
-    text.textContent = i + 1;
-    g.appendChild(text);
+      svg.appendChild(g);
+      nodeEls.push({ g, glow, circ, dot, color, ring: r, node: n });
+    }
+  }
 
-    g.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      onNodeClick(i);
-    });
-
-    svg.appendChild(g);
-    nodeEls.push({ g, glow, circ, dot, color: NODE_COLORS[i] });
+  // Center ring label
+  for (let r = 0; r < RING_COUNT; r++) {
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    const ly = CY - RING_RADII[r] + (r === 0 ? -12 : -10);
+    label.setAttribute('x', CX);
+    label.setAttribute('y', ly);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('fill', RING_COLORS[r][0]);
+    label.setAttribute('font-family', 'Orbitron, sans-serif');
+    label.setAttribute('font-size', '7');
+    label.setAttribute('opacity', '0.3');
+    label.textContent = ['INNEN', 'MITTE', 'AUSSEN'][r];
+    svg.appendChild(label);
   }
 }
 
-function lightNode(i, duration = 300) {
-  const n = nodeEls[i];
+function lightNode(ring, node, duration = 300) {
+  const idx = nodeId(ring, node);
+  const n = nodeEls[idx];
   n.glow.setAttribute('opacity', '0.4');
   n.circ.setAttribute('opacity', '1');
   n.circ.setAttribute('stroke-width', '3.5');
   n.dot.setAttribute('opacity', '1');
-  n.g.setAttribute('transform', n.g.getAttribute('transform').replace(/scale\([^)]*\)/, '') + ' scale(1.15)');
+  const base = n.g.getAttribute('transform');
+  if (!base.includes('scale')) n.g.setAttribute('transform', base + ' scale(1.2)');
 
   setTimeout(() => {
     n.glow.setAttribute('opacity', '0');
     n.circ.setAttribute('opacity', '0.6');
-    n.circ.setAttribute('stroke-width', '2.5');
+    n.circ.setAttribute('stroke-width', ring === 0 ? '2.5' : '2');
     n.dot.setAttribute('opacity', '0.3');
-    const base = n.g.getAttribute('transform');
-    n.g.setAttribute('transform', base.replace(/ scale\([^)]*\)/, ''));
+    const b = n.g.getAttribute('transform');
+    n.g.setAttribute('transform', b.replace(/ scale\([^)]*\)/, ''));
   }, duration);
 }
 
-function flashCorrect(i) {
-  const n = nodeEls[i];
+function flashCorrect(ring, node) {
+  const n = nodeEls[nodeId(ring, node)];
   n.glow.setAttribute('opacity', '0.5');
   n.glow.setAttribute('fill', '#00ff88');
   n.dot.setAttribute('fill', '#00ff88');
@@ -831,8 +850,8 @@ function flashCorrect(i) {
   }, 400);
 }
 
-function flashWrong(i) {
-  const n = nodeEls[i];
+function flashWrong(ring, node) {
+  const n = nodeEls[nodeId(ring, node)];
   n.glow.setAttribute('opacity', '0.6');
   n.glow.setAttribute('fill', '#ff2244');
   n.circ.setAttribute('stroke', '#ff2244');
@@ -853,7 +872,7 @@ function updateHUD() {
   let hearts = '';
   for (let i = 0; i < lives; i++) hearts += '♥';
   document.getElementById('livesVal').textContent = hearts || '—';
-  document.getElementById('diffFill').style.height = Math.min(level * 5, 100) + '%';
+  document.getElementById('diffFill').style.height = Math.min(level * 4, 100) + '%';
 
   document.getElementById('puRevealCount').textContent = powerups.reveal;
   document.getElementById('puShieldCount').textContent = powerups.shield;
@@ -867,15 +886,34 @@ function updateHUD() {
 function updateSeqBar() {
   const bar = document.getElementById('seqBar');
   bar.innerHTML = '';
-  for (let i = 0; i < sequence.length; i++) {
-    const dot = document.createElement('div');
-    dot.className = 'seq-item';
-    if (showing) dot.classList.add('waiting');
-    else if (i < playerPos) dot.classList.add('done');
-    else if (i === playerPos) dot.classList.add('current');
-    bar.appendChild(dot);
+
+  for (let r = 0; r < RING_COUNT; r++) {
+    const row = document.createElement('div');
+    row.className = 'seq-ring-row';
+
+    let hasItems = false;
+    for (let i = 0; i < sequence.length; i++) {
+      if (sequence[i].ring !== r) continue;
+      hasItems = true;
+      const dot = document.createElement('div');
+      dot.className = 'seq-item';
+      dot.style.background = RING_COLORS[r][0];
+
+      if (showing) {
+        dot.style.opacity = '0.4';
+      } else if (i < playerPos) {
+        dot.classList.add('done');
+      } else if (i === playerPos) {
+        dot.classList.add('current');
+      } else {
+        dot.style.opacity = '0.35';
+      }
+      row.appendChild(dot);
+    }
+
+    if (hasItems) bar.appendChild(row);
   }
-  // Auto-scroll to current
+
   const current = bar.querySelector('.current');
   if (current) current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 }
@@ -919,18 +957,21 @@ function getPause() {
 }
 
 function addToSequence() {
-  if (gameMode === 'chaos' && level > 3) {
-    const r = Math.random();
-    if (r < 0.3) {
-      sequence.push(sequence[sequence.length - 1]);
-    } else if (r < 0.5) {
-      sequence.push((sequence[sequence.length - 1] + 3) % NODE_COUNT + 1);
-    } else {
-      sequence.push(Math.floor(Math.random() * NODE_COUNT) + 1);
-    }
+  // Unlock rings progressively: inner first, then middle, then outer
+  let maxRing = 0;
+  if (level >= 3) maxRing = 1;
+  if (level >= 7) maxRing = 2;
+
+  let ring, node;
+  if (gameMode === 'chaos' && level > 3 && Math.random() < 0.3) {
+    const last = sequence[sequence.length - 1];
+    ring = last.ring;
+    node = (last.node + 3) % NODES_PER_RING;
   } else {
-    sequence.push(Math.floor(Math.random() * NODE_COUNT) + 1);
+    ring = Math.floor(Math.random() * (maxRing + 1));
+    node = Math.floor(Math.random() * NODES_PER_RING);
   }
+  sequence.push({ ring, node });
 }
 
 async function showSequence() {
@@ -941,9 +982,9 @@ async function showSequence() {
   await sleep(600);
 
   for (let i = 0; i < sequence.length; i++) {
-    const n = sequence[i] - 1;
-    lightNode(n, getSpeed() - 50);
-    playNodeSound(n);
+    const { ring, node } = sequence[i];
+    lightNode(ring, node, getSpeed() - 50);
+    playNodeSound(ring, node);
     updateSeqBar();
     await sleep(getSpeed());
     if (getPause() > 0) await sleep(getPause());
@@ -962,27 +1003,30 @@ function nextRound() {
   showSequence();
 }
 
-function onNodeClick(i) {
+function onNodeClick(ring, node) {
   if (!playing || showing) return;
   ensureAudio();
 
-  const expected = sequence[playerPos] - 1;
+  const expected = sequence[playerPos];
+  const ringMultiplier = ring + 1;
 
-  if (i === expected) {
-    playNodeSound(i);
-    flashCorrect(i);
+  if (ring === expected.ring && node === expected.node) {
+    playNodeSound(ring, node);
+    flashCorrect(ring, node);
     haptic('light');
 
-    const pts = 10 * combo * (gameMode === 'speed' ? 2 : 1);
+    const levelBonus = 1 + Math.floor(level / 3) * 0.5;
+    const speedBonus = gameMode === 'speed' ? 2 : 1;
+    const pts = Math.round(10 * ringMultiplier * combo * levelBonus * speedBonus);
     score += pts;
     if (combo < 20) combo++;
     if (combo > bestCombo) bestCombo = combo;
 
-    const angle = (i / NODE_COUNT) * Math.PI * 2 - Math.PI / 2;
+    const angle = (node / NODES_PER_RING) * Math.PI * 2 - Math.PI / 2;
     const rect = svg.getBoundingClientRect();
-    const nx = rect.left + (CX + Math.cos(angle) * RING_RADIUS) * (rect.width / 420);
-    const ny = rect.top + (CY + Math.sin(angle) * RING_RADIUS) * (rect.height / 420);
-    floatScore(nx, ny, '+' + pts, nodeEls[i].color);
+    const nx = rect.left + (CX + Math.cos(angle) * RING_RADII[ring]) * (rect.width / 420);
+    const ny = rect.top + (CY + Math.sin(angle) * RING_RADII[ring]) * (rect.height / 420);
+    floatScore(nx, ny, '+' + pts, nodeEls[nodeId(ring, node)].color);
 
     if (combo % 5 === 0) {
       playComboSound(combo);
@@ -1013,7 +1057,7 @@ function onNodeClick(i) {
     }
   } else {
     playErrorSound();
-    flashWrong(i);
+    flashWrong(ring, node);
     haptic('error');
 
     if (shieldActive) {
